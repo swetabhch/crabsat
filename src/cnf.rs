@@ -1,4 +1,4 @@
-pub mod cnf_structs {
+pub mod cnf {
     use std::collections::HashMap;
 
     #[derive(Debug)]
