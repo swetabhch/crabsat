@@ -1,19 +1,19 @@
 pub mod cnf {
     use std::collections::HashMap;
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
     pub enum Sign {
         Positive,
         Negative,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Clone)]
     pub struct Literal {
         pub name: u32,
         pub sign: Sign,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Clone)]
     pub struct Clause {
         pub literals: Vec<Literal>,
     }
