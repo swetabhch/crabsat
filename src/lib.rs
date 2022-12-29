@@ -9,16 +9,16 @@ pub mod solver {
     use super::cnf::cnf::*;
     use std::collections::HashMap;
 
-    // The core of the solver's functionality. This function
-    // returns SAT with a satisfying assignment for the input formula
-    // if such an assignment exists, else returns UNSAT.
+    /// The core of the solver's functionality. This function
+    /// returns SAT with a satisfying assignment for the input formula
+    /// if such an assignment exists, else returns UNSAT.
     pub fn solve(formula: CNFFormula) -> SATResult {
         SATResult::UNSAT
     }
 
-    // Performs unit clause propagation on a formula for each unit clause and
-    // returns the formula remaining after propagation.
-    // Side effect: mutates the assignment mapping according to the unit prop process.
+    /// Performs unit clause propagation on a formula for each unit clause and
+    /// returns the formula remaining after propagation.
+    /// Side effect: mutates the assignment mapping according to the unit prop process.
     fn eliminate_unit_clauses(
         formula: &CNFFormula,
         assignment: &mut HashMap<u32, bool>,
@@ -62,8 +62,8 @@ pub mod solver {
         }
     }
 
-    // If a literal has positive parity, sets the variable to true in the assignment.
-    // Else, sets the variable to false.
+    /// If a literal has positive parity, sets the variable to true in the assignment.
+    /// Else, sets the variable to false.
     fn assign_literal_to_true(literal: &Literal, assignment: &mut HashMap<u32, bool>) -> () {
         match literal.sign {
             Sign::Positive => assignment.insert(literal.name, true),
@@ -71,22 +71,27 @@ pub mod solver {
         };
     }
 
-    // Performs pure literal elimination on a formula and returns the formula that remains.
-    // Side effect: mutates the assignment mapping according to the pure literal elim process.
-    // TODO: Decide where we get variable names from. For now: take it in as input.
+    /// Performs pure literal elimination on a formula and returns the formula that remains.
+    /// Side effect: mutates the assignment mapping according to the pure literal elim process.
+    /// TODO: Decide where we get variable names from. For now: take it in as input.
     fn eliminate_pure_literals(
         formula: &CNFFormula,
         assignment: &mut HashMap<u32, bool>,
         variables: &Vec<u32>,
     ) -> CNFFormula {
         let mut edited_clauses = formula.clauses.clone();
-        for name in variables {
-            let pure_lit_opt = var_has_pure_literal(&edited_clauses, *name);
-            match pure_lit_opt {
-                None => continue,
-                Some(pure_lit) => {
-                    assign_literal_to_true(&pure_lit, assignment);
-                    edited_clauses.retain(|c| !c.literals.contains(&pure_lit));
+        let mut pure_literal_found = true;
+        while pure_literal_found {
+            pure_literal_found = false;
+            for name in variables {
+                let pure_lit_opt = var_has_pure_literal(&edited_clauses, *name);
+                match pure_lit_opt {
+                    None => continue,
+                    Some(pure_lit) => {
+                        assign_literal_to_true(&pure_lit, assignment);
+                        edited_clauses.retain(|c| !c.literals.contains(&pure_lit));
+                        pure_literal_found = true;
+                    }
                 }
             }
         }
@@ -96,9 +101,9 @@ pub mod solver {
         }
     }
 
-    // Determines whether a variable corresponds to a pure literal in the given vector of clauses,
-    // i.e. has the same parity throughout the formula. If so, returns an Option containing
-    // the literal. If not, returns None.
+    /// Determines whether a variable corresponds to a pure literal in the given vector of clauses,
+    /// i.e. has the same parity throughout the formula. If so, returns an Option containing
+    /// the literal. If not, returns None.
     fn var_has_pure_literal(clauses: &Vec<Clause>, name: u32) -> Option<Literal> {
         let mut pos_is_pure = true;
         let mut neg_is_pure = true;
@@ -135,8 +140,8 @@ pub mod solver {
         }
     }
 
-    // Returns an option containing the a reference to the first unit clause
-    // in a vector of clauses. If there is no unit clause, returns a None.
+    /// Returns an option containing the a reference to the first unit clause
+    /// in a vector of clauses. If there is no unit clause, returns a None.
     fn get_first_unit_clause(clauses: &Vec<Clause>) -> Option<&Clause> {
         for clause in clauses {
             if is_unit_clause(clause) {
@@ -146,7 +151,7 @@ pub mod solver {
         return None;
     }
 
-    // Determines whether a given clause has only one literal.
+    /// Determines whether a given clause has only one literal.
     fn is_unit_clause(clause: &Clause) -> bool {
         clause.literals.len() == 1
     }
@@ -911,7 +916,6 @@ pub mod solver {
             // the formula. This test checks that we aren't just doing a linear scan
             // over the variables and instead are checking every possible pure literal
             // each time.
-            // TODO: this should currently fail. Fix implementation.
             let c1 = Clause {
                 literals: vec![
                     Literal {
