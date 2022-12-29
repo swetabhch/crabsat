@@ -258,9 +258,280 @@ pub mod solver {
 
         #[test]
         fn eliminate_unit_clauses_where_only_unit_clause() {
-            let clauses = vec![];
+            let c1 = Clause {
+                literals: vec![Literal {
+                    name: 1,
+                    sign: Sign::Positive,
+                }],
+            };
+            let clauses = vec![c1];
             let formula = CNFFormula { clauses };
             let mut assignment: HashMap<u32, bool> = HashMap::new();
+            let new_formula = eliminate_unit_clauses(&formula, &mut assignment);
+            assert_eq!(new_formula.clauses.len(), 0);
+            assert_eq!(assignment.len(), 1);
+            assert!(*assignment.get(&1).unwrap());
+        }
+
+        #[test]
+        fn eliminate_unit_clauses_where_only_non_unit_clause() {
+            let c1 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let clauses = vec![c1];
+            let formula = CNFFormula { clauses };
+            let mut assignment: HashMap<u32, bool> = HashMap::new();
+            let new_formula = eliminate_unit_clauses(&formula, &mut assignment);
+            assert_eq!(new_formula.clauses.len(), 1);
+            assert_eq!(assignment.len(), 0);
+        }
+
+        #[test]
+        fn eliminate_unit_clauses_where_multiple_non_unit_clauses() {
+            let c1 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 2,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c2 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c3 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let clauses = vec![c1, c2, c3];
+            let formula = CNFFormula { clauses };
+            let mut assignment: HashMap<u32, bool> = HashMap::new();
+            let new_formula = eliminate_unit_clauses(&formula, &mut assignment);
+            assert_eq!(new_formula.clauses.len(), 3);
+            assert_eq!(assignment.len(), 0);
+        }
+
+        #[test]
+        fn eliminate_unit_clauses_where_multiple_clauses_one_unrelated_unit() {
+            let c1 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 2,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c2 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c3 = Clause {
+                literals: vec![Literal {
+                    name: 4,
+                    sign: Sign::Negative,
+                }],
+            };
+            let c1_copy = c1.clone();
+            let c2_copy = c2.clone();
+            let clauses = vec![c1, c2, c3];
+            let formula = CNFFormula { clauses };
+            let mut assignment: HashMap<u32, bool> = HashMap::new();
+            let new_formula = eliminate_unit_clauses(&formula, &mut assignment);
+            assert_eq!(new_formula.clauses, vec![c1_copy, c2_copy]);
+            assert_eq!(assignment.len(), 1);
+            assert!(!*assignment.get(&4).unwrap());
+        }
+
+        #[test]
+        fn eliminate_unit_clauses_where_one_unit_leads_to_full_solution() {
+            let c1 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 2,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c2 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c3 = Clause {
+                literals: vec![Literal {
+                    name: 1,
+                    sign: Sign::Negative,
+                }],
+            };
+            let clauses = vec![c1, c2, c3];
+            let formula = CNFFormula { clauses };
+            let mut assignment: HashMap<u32, bool> = HashMap::new();
+            let new_formula = eliminate_unit_clauses(&formula, &mut assignment);
+            assert_eq!(new_formula.clauses, vec![]);
+            assert!(!*assignment.get(&1).unwrap());
+            assert!(*assignment.get(&2).unwrap());
+            // leaving whether or not 3 is assigned to be unspecified behavior right now
+        }
+
+        #[test]
+        fn eliminate_unit_clauses_where_one_unit_affects_clauses_but_doesnt_trigger_more_elims() {
+            let c1 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 2,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 4,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c2 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c3 = Clause {
+                literals: vec![Literal {
+                    name: 1,
+                    sign: Sign::Positive,
+                }],
+            };
+            let c1_copy = c1.clone();
+            let modified_c2 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let clauses = vec![c1, c2, c3];
+            let formula = CNFFormula { clauses };
+            let mut assignment: HashMap<u32, bool> = HashMap::new();
+            let new_formula = eliminate_unit_clauses(&formula, &mut assignment);
+            assert_eq!(new_formula.clauses, vec![c1_copy, modified_c2]);
+            assert_eq!(assignment.len(), 1);
+            assert!(*assignment.get(&1).unwrap());
+        }
+
+        #[test]
+        fn eliminate_unit_clauses_where_multiple_distinct_units() {
+            let c1 = Clause {
+                literals: vec![Literal {
+                    name: 1,
+                    sign: Sign::Positive,
+                }],
+            };
+            let c2 = Clause {
+                literals: vec![Literal {
+                    name: 3,
+                    sign: Sign::Negative,
+                }],
+            };
+            let c3 = Clause {
+                literals: vec![Literal {
+                    name: 100,
+                    sign: Sign::Positive,
+                }],
+            };
+            let c4 = Clause {
+                literals: vec![Literal {
+                    name: 5,
+                    sign: Sign::Negative,
+                }],
+            };
+            let clauses = vec![c1, c2, c3, c4];
+            let formula = CNFFormula { clauses };
+            let mut assignment: HashMap<u32, bool> = HashMap::new();
+            let new_formula = eliminate_unit_clauses(&formula, &mut assignment);
+            assert_eq!(new_formula.clauses.len(), 0);
+            assert_eq!(assignment.len(), 4);
+            assert!(*assignment.get(&1).unwrap());
+            assert!(!*assignment.get(&3).unwrap());
+            assert!(*assignment.get(&100).unwrap());
+            assert!(!*assignment.get(&5).unwrap());
         }
     }
 }
