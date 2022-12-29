@@ -1,7 +1,6 @@
 mod cnf;
 
-// For some reason, I'm going to try to implement this without giving Clause, Literal
-// the Copy trait.
+// For learning purposes, I'm going to try to implement this without giving Clause the Copy trait.
 // TODO: this file is becoming somewhat unwieldy with all the tests being grouped here.
 //   -> Think about rearrangement?
 
