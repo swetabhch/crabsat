@@ -25,6 +25,7 @@ pub mod cnf {
         pub clauses: Vec<Clause>,
     }
 
+    #[derive(Debug, PartialEq, Eq)]
     pub enum SATResult {
         SAT(HashMap<u32, bool>),
         UNSAT,

@@ -7,13 +7,95 @@ mod cnf;
 
 pub mod solver {
     use super::cnf::cnf::*;
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
 
     /// The core of the solver's functionality. This function
     /// returns SAT with a satisfying assignment for the input formula
     /// if such an assignment exists, else returns UNSAT.
     pub fn solve(formula: CNFFormula) -> SATResult {
-        SATResult::UNSAT
+        let assignment: HashMap<u32, bool> = HashMap::new();
+        let vars = get_vars_from_formula(&formula);
+        match solve_with_assignment(formula, assignment, &vars) {
+            None => SATResult::UNSAT,
+            Some(assignment) => SATResult::SAT(assignment),
+        }
+    }
+
+    /// Returns the variables present in a formula.
+    /// TODO: test this.
+    fn get_vars_from_formula(formula: &CNFFormula) -> Vec<u32> {
+        let mut vars = HashSet::new();
+        for clause in &formula.clauses {
+            for literal in &clause.literals {
+                vars.insert(literal.name);
+            }
+        }
+        let var_vec = vars.into_iter().collect();
+        var_vec
+    }
+
+    /// Recursively tries to find a satisfying truth assignment for a given formula
+    /// given the current assignment. Returns an option containing a satisfying (partial)
+    /// assignment if such an assignment exists, else returns None.
+    fn solve_with_assignment<'a>(
+        formula: CNFFormula,
+        mut assignment: HashMap<u32, bool>,
+        vars: &Vec<u32>,
+    ) -> Option<HashMap<u32, bool>> {
+        // Unit clause and pure literal elimination
+        let formula = eliminate_unit_clauses(&formula, &mut assignment);
+        let formula = eliminate_pure_literals(&formula, &mut assignment, vars);
+        // Check for empty formulae and clauses
+        if formula.clauses.iter().any(|c| c.literals == vec![]) {
+            return None;
+        }
+        if formula.clauses == vec![] {
+            return Some(assignment);
+        }
+
+        // Choose any variable to assign / backtrack on
+        // Assumption: the earlier checks ensure that there is a first element in `vars`.
+        let var = vars.first().unwrap();
+
+        let mut pos_clauses = formula.clauses.clone();
+        let mut pos_assignment = assignment.clone();
+        propagate_unit_literal(
+            Literal {
+                name: *var,
+                sign: Sign::Positive,
+            },
+            &mut pos_clauses,
+            &mut pos_assignment,
+        );
+        let pos_result = solve_with_assignment(
+            CNFFormula {
+                clauses: pos_clauses,
+            },
+            pos_assignment,
+            vars,
+        );
+        match pos_result {
+            Some(assignment_ref) => Some(assignment_ref),
+            None => {
+                let mut neg_clauses = formula.clauses.clone();
+                let mut neg_assignment = assignment.clone();
+                propagate_unit_literal(
+                    Literal {
+                        name: *var,
+                        sign: Sign::Negative,
+                    },
+                    &mut neg_clauses,
+                    &mut neg_assignment,
+                );
+                solve_with_assignment(
+                    CNFFormula {
+                        clauses: neg_clauses,
+                    },
+                    neg_assignment,
+                    vars,
+                )
+            }
+        }
     }
 
     /// Performs unit clause propagation on a formula for each unit clause and
@@ -28,37 +110,45 @@ pub mod solver {
         while let Some(clause_ref) = get_first_unit_clause(&edited_clauses) {
             // We know this clause will have length 1, so we unwrap here.
             let unit_literal = clause_ref.literals.first().unwrap().clone();
-            // Change assignment according to literal.
-            assign_literal_to_true(&unit_literal, assignment);
-            let mut clauses_to_remove = Vec::new();
-            for clause in &edited_clauses {
-                if clause.literals.contains(&unit_literal) {
-                    // NOTE: Pushing clones of clauses here so as to avoid the problem of
-                    // edited_clauses's borrow lasting until after the for loop due
-                    // to lexical lifetimes.
-                    clauses_to_remove.push(clause.clone());
-                }
-            }
-            // Drop all clauses that contain the literal.
-            edited_clauses.retain(|c| !clauses_to_remove.contains(c));
-            // Remove the negated version of this literal from the remaining clauses.
-            for clause in &mut edited_clauses {
-                let opposite_sign = match unit_literal.sign {
-                    Sign::Positive => Sign::Negative,
-                    Sign::Negative => Sign::Positive,
-                };
-                let negated_literal = Literal {
-                    name: unit_literal.name,
-                    sign: opposite_sign,
-                };
-                if clause.literals.contains(&negated_literal) {
-                    clause.literals.retain(|l| *l != negated_literal);
-                }
-            }
+            propagate_unit_literal(unit_literal, &mut edited_clauses, assignment);
         }
 
         CNFFormula {
             clauses: edited_clauses,
+        }
+    }
+
+    /// Perform unit propagation given a literal to propagate. Updates clauses, assignment
+    /// as a side effect.
+    fn propagate_unit_literal(
+        literal: Literal,
+        clauses: &mut Vec<Clause>,
+        assignment: &mut HashMap<u32, bool>,
+    ) -> () {
+        // Change assignment according to literal.
+        assign_literal_to_true(&literal, assignment);
+        let mut clauses_to_remove = Vec::new();
+        // TODO: see if there's a better way to do this than just cloning clauses.
+        for clause in clauses.clone() {
+            if clause.literals.contains(&literal) {
+                clauses_to_remove.push(clause);
+            }
+        }
+        // Drop all clauses that contain the literal.
+        clauses.retain(|c| !clauses_to_remove.contains(c));
+        // Remove the negated version of this literal from the remaining clauses.
+        for clause in clauses {
+            let opposite_sign = match literal.sign {
+                Sign::Positive => Sign::Negative,
+                Sign::Negative => Sign::Positive,
+            };
+            let negated_literal = Literal {
+                name: literal.name,
+                sign: opposite_sign,
+            };
+            if clause.literals.contains(&negated_literal) {
+                clause.literals.retain(|l| *l != negated_literal);
+            }
         }
     }
 
@@ -968,6 +1058,202 @@ pub mod solver {
             assert!(!*assignment.get(&2).unwrap());
             assert!(!*assignment.get(&1).unwrap());
             assert!(!*assignment.get(&3).unwrap());
+        }
+
+        // --- solve ---
+
+        #[test]
+        fn solve_empty_formula() {
+            let formula = CNFFormula { clauses: vec![] };
+            assert_eq!(solve(formula), SATResult::SAT(HashMap::new()));
+        }
+
+        #[test]
+        fn solve_formula_with_only_empty_clause() {
+            let formula = CNFFormula {
+                clauses: vec![Clause { literals: vec![] }],
+            };
+            assert_eq!(solve(formula), SATResult::UNSAT);
+        }
+
+        #[test]
+        fn solve_formula_with_misc_clauses_and_empty_clause() {
+            let c1 = Clause {
+                literals: vec![Literal {
+                    name: 1,
+                    sign: Sign::Positive,
+                }],
+            };
+            let c2 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c3 = Clause { literals: vec![] };
+            let formula = CNFFormula {
+                clauses: vec![c1, c2, c3],
+            };
+            assert_eq!(solve(formula), SATResult::UNSAT);
+        }
+
+        #[test]
+        fn solve_formula_with_only_a_unit_clause() {
+            let clauses = vec![Clause {
+                literals: vec![Literal {
+                    name: 1,
+                    sign: Sign::Positive,
+                }],
+            }];
+            let formula = CNFFormula { clauses };
+            let mut soln = HashMap::new();
+            soln.insert(1, true);
+            assert_eq!(solve(formula), SATResult::SAT(soln));
+        }
+
+        #[test]
+        fn solve_formula_with_multiple_unit_clauses() {
+            let clauses = vec![
+                Clause {
+                    literals: vec![Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    }],
+                },
+                Clause {
+                    literals: vec![Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    }],
+                },
+                Clause {
+                    literals: vec![Literal {
+                        name: 5,
+                        sign: Sign::Positive,
+                    }],
+                },
+            ];
+            let formula = CNFFormula { clauses };
+            let mut soln = HashMap::new();
+            soln.insert(1, true);
+            soln.insert(2, false);
+            soln.insert(5, true);
+            assert_eq!(solve(formula), SATResult::SAT(soln));
+        }
+
+        #[test]
+        fn solve_formula_with_one_clause() {
+            // TODO: fill this in; test partial assignment when only one clause,
+            // so any of the literals could be true
+            assert!(true);
+        }
+
+        #[test]
+        fn solve_formula_with_contradictory_unit_clauses() {
+            let clauses = vec![
+                Clause {
+                    literals: vec![Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    }],
+                },
+                Clause {
+                    literals: vec![Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    }],
+                },
+                Clause {
+                    literals: vec![Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    }],
+                },
+            ];
+            let formula = CNFFormula { clauses };
+            assert_eq!(solve(formula), SATResult::UNSAT);
+        }
+
+        #[test]
+        fn solve_non_trivial_unsat_formula() {
+            let one_pos = Literal {
+                name: 1,
+                sign: Sign::Positive,
+            };
+            let one_neg = Literal {
+                name: 1,
+                sign: Sign::Negative,
+            };
+            let two_pos = Literal {
+                name: 2,
+                sign: Sign::Positive,
+            };
+            let two_neg = Literal {
+                name: 2,
+                sign: Sign::Negative,
+            };
+            let c1 = Clause {
+                literals: vec![one_pos, two_pos],
+            };
+            let c2 = Clause {
+                literals: vec![one_pos, two_neg],
+            };
+            let c3 = Clause {
+                literals: vec![one_neg, two_pos],
+            };
+            let c4 = Clause {
+                literals: vec![one_neg, two_neg],
+            };
+            let formula = CNFFormula {
+                clauses: vec![c1, c2, c3, c4],
+            };
+            assert_eq!(solve(formula), SATResult::UNSAT);
+        }
+
+        #[test]
+        fn solve_simple_sat_example() {
+            let c1 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let c2 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 2,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let formula = CNFFormula {
+                clauses: vec![c1, c2],
+            };
+            if let SATResult::SAT(soln) = solve(formula) {
+                assert_eq!(*soln.get(&2).unwrap(), true);
+            } else {
+                assert!(false);
+            }
         }
     }
 }
