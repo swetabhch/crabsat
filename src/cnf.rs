@@ -7,7 +7,9 @@ pub mod cnf {
         Negative,
     }
 
-    #[derive(Debug, PartialEq, Eq, Clone)]
+    // TODO: I think we can have literals implement Copy without any drawbacks.
+    // Added Copy here, change code in lib.rs to reflect this.
+    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
     pub struct Literal {
         pub name: u32,
         pub sign: Sign,

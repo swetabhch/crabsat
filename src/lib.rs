@@ -2,6 +2,8 @@ mod cnf;
 
 // For some reason, I'm going to try to implement this without giving Clause, Literal
 // the Copy trait.
+// TODO: this file is becoming somewhat unwieldy with all the tests being grouped here.
+//   -> Think about rearrangement?
 
 pub mod solver {
     use super::cnf::cnf::*;
@@ -71,16 +73,65 @@ pub mod solver {
 
     // Performs pure literal elimination on a formula and returns the formula that remains.
     // Side effect: mutates the assignment mapping according to the pure literal elim process.
+    // TODO: Decide where we get variable names from. For now: take it in as input.
     fn eliminate_pure_literals(
         formula: &CNFFormula,
         assignment: &mut HashMap<u32, bool>,
+        variables: &Vec<u32>,
     ) -> CNFFormula {
-        // 1. Find a pure literal (if none, return inp formula)
-        // 2. Change assignment so that the literal evaluates to true
-        // 3. From formula, drop all clauses that contain the literal
-        // 4. Return to step 1
+        let mut edited_clauses = formula.clauses.clone();
+        for name in variables {
+            let pure_lit_opt = var_has_pure_literal(&edited_clauses, *name);
+            match pure_lit_opt {
+                None => continue,
+                Some(pure_lit) => {
+                    assign_literal_to_true(&pure_lit, assignment);
+                    edited_clauses.retain(|c| !c.literals.contains(&pure_lit));
+                }
+            }
+        }
+
         CNFFormula {
-            clauses: Vec::new(),
+            clauses: edited_clauses,
+        }
+    }
+
+    // Determines whether a variable corresponds to a pure literal in the given vector of clauses,
+    // i.e. has the same parity throughout the formula. If so, returns an Option containing
+    // the literal. If not, returns None.
+    fn var_has_pure_literal(clauses: &Vec<Clause>, name: u32) -> Option<Literal> {
+        let mut pos_is_pure = true;
+        let mut neg_is_pure = true;
+        let mut pos_encountered = false;
+        let mut neg_encountered = false;
+        for clause in clauses {
+            for literal in &clause.literals {
+                if literal.name == name {
+                    match literal.sign {
+                        Sign::Positive => {
+                            neg_is_pure = false;
+                            pos_encountered = true
+                        }
+                        Sign::Negative => {
+                            pos_is_pure = false;
+                            neg_encountered = true
+                        }
+                    };
+                }
+            }
+        }
+        if pos_is_pure && pos_encountered {
+            Some(Literal {
+                name,
+                sign: Sign::Positive,
+            })
+        } else if neg_is_pure && neg_encountered {
+            Some(Literal {
+                name,
+                sign: Sign::Negative,
+            })
+        } else {
+            None
         }
     }
 
@@ -532,6 +583,387 @@ pub mod solver {
             assert!(!*assignment.get(&3).unwrap());
             assert!(*assignment.get(&100).unwrap());
             assert!(!*assignment.get(&5).unwrap());
+        }
+
+        // --- var_has_pure_literal ---
+
+        #[test]
+        fn var_has_pure_literal_no_clauses() {
+            assert_eq!(var_has_pure_literal(&vec![], 1), None);
+        }
+
+        #[test]
+        fn var_has_pure_literal_one_clause_one_literal() {
+            let clause = Clause {
+                literals: vec![Literal {
+                    name: 1,
+                    sign: Sign::Positive,
+                }],
+            };
+            let clauses = vec![clause];
+            assert_eq!(
+                var_has_pure_literal(&clauses, 1),
+                Some(Literal {
+                    name: 1,
+                    sign: Sign::Positive
+                })
+            );
+        }
+
+        #[test]
+        fn var_has_pure_literal_one_clause_one_lit_diff_name() {
+            let clause = Clause {
+                literals: vec![Literal {
+                    name: 1,
+                    sign: Sign::Positive,
+                }],
+            };
+            let clauses = vec![clause];
+            assert_eq!(var_has_pure_literal(&clauses, 2), None);
+        }
+
+        #[test]
+        fn var_has_pure_literal_one_clause_multi_non_conflicting_lits() {
+            let clause = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let clauses = vec![clause];
+            assert_eq!(
+                var_has_pure_literal(&clauses, 2),
+                Some(Literal {
+                    name: 2,
+                    sign: Sign::Negative
+                })
+            );
+        }
+
+        #[test]
+        fn var_has_pure_literal_one_clause_conflicting_lits() {
+            let clause = Clause {
+                literals: vec![
+                    Literal {
+                        name: 2,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let clauses = vec![clause];
+            assert_eq!(var_has_pure_literal(&clauses, 2), None)
+        }
+
+        #[test]
+        fn var_has_pure_literal_multi_clauses_no_pure() {
+            let c1 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let c2 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c3 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 2,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let clauses = vec![c1, c2, c3];
+            assert_eq!(var_has_pure_literal(&clauses, 2), None);
+            assert_eq!(var_has_pure_literal(&clauses, 1), None);
+            assert_eq!(var_has_pure_literal(&clauses, 3), None);
+        }
+
+        #[test]
+        fn var_has_pure_literal_multi_clauses_one_pure() {
+            let c1 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let c2 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c3 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let clauses = vec![c1, c2, c3];
+            assert_eq!(
+                var_has_pure_literal(&clauses, 2),
+                Some(Literal {
+                    name: 2,
+                    sign: Sign::Negative
+                })
+            );
+            assert_eq!(var_has_pure_literal(&clauses, 1), None);
+            assert_eq!(var_has_pure_literal(&clauses, 3), None);
+        }
+
+        // --- eliminate_pure_literals ---
+
+        #[test]
+        fn eliminate_pure_literals_no_clauses() {
+            let formula = CNFFormula { clauses: vec![] };
+            let mut assignment = HashMap::new();
+            let vars = vec![];
+            let new_formula = eliminate_pure_literals(&formula, &mut assignment, &vars);
+            assert_eq!(assignment.len(), 0);
+            assert_eq!(new_formula.clauses, vec![]);
+        }
+
+        #[test]
+        fn eliminate_pure_literals_empty_clause() {
+            let formula = CNFFormula {
+                clauses: vec![Clause { literals: vec![] }],
+            };
+            let mut assignment = HashMap::new();
+            let vars = vec![];
+            let new_formula = eliminate_pure_literals(&formula, &mut assignment, &vars);
+            assert_eq!(assignment.len(), 0);
+            assert_eq!(new_formula.clauses, vec![Clause { literals: vec![] }]);
+        }
+
+        #[test]
+        fn eliminate_pure_literals_just_unit_clause() {
+            let formula = CNFFormula {
+                clauses: vec![Clause {
+                    literals: vec![Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    }],
+                }],
+            };
+            let mut assignment = HashMap::new();
+            let vars = vec![1];
+            let new_formula = eliminate_pure_literals(&formula, &mut assignment, &vars);
+            assert_eq!(assignment.len(), 1);
+            assert!(*assignment.get(&1).unwrap());
+            assert_eq!(new_formula.clauses, vec![]);
+        }
+
+        #[test]
+        fn eliminate_pure_literals_one_clause_multi_pure_lits() {
+            let formula = CNFFormula {
+                clauses: vec![Clause {
+                    literals: vec![
+                        Literal {
+                            name: 1,
+                            sign: Sign::Positive,
+                        },
+                        Literal {
+                            name: 2,
+                            sign: Sign::Negative,
+                        },
+                        Literal {
+                            name: 3,
+                            sign: Sign::Positive,
+                        },
+                    ],
+                }],
+            };
+            let mut assignment = HashMap::new();
+            let vars = vec![1, 2, 3];
+            let new_formula = eliminate_pure_literals(&formula, &mut assignment, &vars);
+            assert!(*assignment.get(&1).unwrap());
+            assert_eq!(new_formula.clauses, vec![]);
+        }
+
+        #[test]
+        fn eliminate_pure_literals_one_clause_conflicting_lits() {
+            let l1 = Literal {
+                name: 2,
+                sign: Sign::Negative,
+            };
+            let l2 = Literal {
+                name: 2,
+                sign: Sign::Positive,
+            };
+            let formula = CNFFormula {
+                clauses: vec![Clause {
+                    literals: vec![l1, l2],
+                }],
+            };
+            let mut assignment = HashMap::new();
+            let vars = vec![2];
+            let new_formula = eliminate_pure_literals(&formula, &mut assignment, &vars);
+            assert_eq!(
+                new_formula.clauses,
+                vec![Clause {
+                    literals: vec![l1, l2]
+                }]
+            );
+            assert_eq!(assignment.len(), 0);
+        }
+
+        #[test]
+        fn eliminate_pure_literals_multi_clauses_no_pure_lits() {
+            let c1 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let c2 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c3 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 2,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let c1_copy = c1.clone();
+            let c2_copy = c2.clone();
+            let c3_copy = c3.clone();
+            let formula = CNFFormula {
+                clauses: vec![c1, c2, c3],
+            };
+            let vars = vec![1, 2, 3];
+            let mut assignment = HashMap::new();
+            let new_formula = eliminate_pure_literals(&formula, &mut assignment, &vars);
+            assert_eq!(new_formula.clauses, vec![c1_copy, c2_copy, c3_copy]);
+            assert_eq!(assignment.len(), 0);
+        }
+
+        #[test]
+        fn eliminate_pure_literals_multi_clauses_exhaustive_search_on_vars() {
+            // Each elimination of a pure literal opens up a new pure literal in
+            // the formula. This test checks that we aren't just doing a linear scan
+            // over the variables and instead are checking every possible pure literal
+            // each time.
+            // TODO: this should currently fail. Fix implementation.
+            let c1 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Positive,
+                    },
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let c2 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 1,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Positive,
+                    },
+                ],
+            };
+            let c3 = Clause {
+                literals: vec![
+                    Literal {
+                        name: 2,
+                        sign: Sign::Negative,
+                    },
+                    Literal {
+                        name: 3,
+                        sign: Sign::Negative,
+                    },
+                ],
+            };
+            let c4 = Clause {
+                literals: vec![Literal {
+                    name: 3,
+                    sign: Sign::Negative,
+                }],
+            };
+            let formula = CNFFormula {
+                clauses: vec![c1, c2, c3, c4],
+            };
+            let vars = vec![1, 2, 3];
+            let mut assignment = HashMap::new();
+            let new_formula = eliminate_pure_literals(&formula, &mut assignment, &vars);
+            assert_eq!(new_formula.clauses.len(), 0);
+            assert!(!*assignment.get(&2).unwrap());
+            assert!(!*assignment.get(&1).unwrap());
+            assert!(!*assignment.get(&3).unwrap());
         }
     }
 }
