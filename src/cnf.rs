@@ -7,7 +7,6 @@ pub mod cnf {
         Negative,
     }
 
-    // TODO: Added Copy here, change code in lib.rs to reflect this.
     #[derive(Debug, PartialEq, Eq, Clone, Copy)]
     pub struct Literal {
         pub name: u32,

@@ -11,12 +11,21 @@ pub mod solver {
     /// The core of the solver's functionality. This function
     /// returns SAT with a satisfying assignment for the input formula
     /// if such an assignment exists, else returns UNSAT.
+    /// Returns full assignments, not partial ones, where variables are
+    /// by default set to false.
     pub fn solve(formula: CNFFormula) -> SATResult {
         let assignment: HashMap<u32, bool> = HashMap::new();
         let vars = get_vars_from_formula(&formula);
         match solve_with_assignment(formula, assignment, &vars) {
             None => SATResult::UNSAT,
-            Some(assignment) => SATResult::SAT(assignment),
+            Some(mut assignment) => {
+                for var in vars {
+                    if !assignment.contains_key(&var) {
+                        assignment.insert(var, false);
+                    }
+                }
+                SATResult::SAT(assignment)
+            }
         }
     }
 
@@ -244,6 +253,18 @@ pub mod solver {
     fn is_unit_clause(clause: &Clause) -> bool {
         clause.literals.len() == 1
     }
+
+    // _            _           _          _          _
+    //     /\ \         /\ \        / /\       /\ \       / /\
+    //     \_\ \       /  \ \      / /  \      \_\ \     / /  \
+    //     /\__ \     / /\ \ \    / / /\ \__   /\__ \   / / /\ \__
+    //    / /_ \ \   / / /\ \_\  / / /\ \___\ / /_ \ \ / / /\ \___\
+    //   / / /\ \ \ / /_/_ \/_/  \ \ \ \/___// / /\ \ \\ \ \ \/___/
+    //  / / /  \/_// /____/\      \ \ \     / / /  \/_/ \ \ \
+    // / / /      / /\____\/  _    \ \ \   / / /    _    \ \ \
+    // / / /      / / /______ /_/\__/ / /  / / /    /_/\__/ / /
+    // /_/ /      / / /_______\\ \/___/ /  /_/ /     \ \/___/ /
+    // \_\/       \/__________/ \_____\/   \_\/       \_____\/
 
     #[cfg(test)]
     mod tests {
@@ -1148,9 +1169,29 @@ pub mod solver {
 
         #[test]
         fn solve_formula_with_one_clause() {
-            // TODO: fill this in; test partial assignment when only one clause,
-            // so any of the literals could be true
-            assert!(true);
+            // Only one clause, so any of the literals could be true
+            let l1 = Literal {
+                name: 1,
+                sign: Sign::Positive,
+            };
+            let l2 = Literal {
+                name: 2,
+                sign: Sign::Positive,
+            };
+            let l3 = Literal {
+                name: 5,
+                sign: Sign::Negative,
+            };
+            let clauses = vec![Clause {
+                literals: vec![l1, l2, l3],
+            }];
+            let soln = solve(CNFFormula { clauses });
+            match soln {
+                SATResult::UNSAT => assert!(false),
+                SATResult::SAT(soln) => assert!(
+                    *soln.get(&1).unwrap() || *soln.get(&2).unwrap() || !*soln.get(&5).unwrap()
+                ),
+            };
         }
 
         #[test]
@@ -1249,7 +1290,8 @@ pub mod solver {
                 clauses: vec![c1, c2],
             };
             if let SATResult::SAT(soln) = solve(formula) {
-                assert_eq!(*soln.get(&2).unwrap(), true);
+                assert!(*soln.get(&2).unwrap());
+                assert!(*soln.get(&1).unwrap() || !*soln.get(&3).unwrap());
             } else {
                 assert!(false);
             }
