@@ -1,8 +1,4 @@
-mod cnf;
-
-// For learning purposes, I'm going to try to implement this without giving Clause the Copy trait.
-// TODO: this file is becoming somewhat unwieldy with all the tests being grouped here.
-//   -> Think about rearrangement?
+pub mod cnf;
 
 pub mod solver {
     use super::cnf::cnf::*;
@@ -30,7 +26,6 @@ pub mod solver {
     }
 
     /// Returns the variables present in a formula.
-    /// TODO: test this.
     fn get_vars_from_formula(formula: &CNFFormula) -> Vec<u32> {
         let mut vars = HashSet::new();
         for clause in &formula.clauses {
@@ -68,10 +63,7 @@ pub mod solver {
         let mut pos_clauses = formula.clauses.clone();
         let mut pos_assignment = assignment.clone();
         propagate_unit_literal(
-            Literal {
-                name: *var,
-                sign: Sign::Positive,
-            },
+            Literal::new(*var, Sign::Positive),
             &mut pos_clauses,
             &mut pos_assignment,
         );
@@ -88,10 +80,7 @@ pub mod solver {
                 let mut neg_clauses = formula.clauses.clone();
                 let mut neg_assignment = assignment.clone();
                 propagate_unit_literal(
-                    Literal {
-                        name: *var,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(*var, Sign::Negative),
                     &mut neg_clauses,
                     &mut neg_assignment,
                 );
@@ -150,10 +139,7 @@ pub mod solver {
                 Sign::Positive => Sign::Negative,
                 Sign::Negative => Sign::Positive,
             };
-            let negated_literal = Literal {
-                name: literal.name,
-                sign: opposite_sign,
-            };
+            let negated_literal = Literal::new(literal.name, opposite_sign);
             if clause.literals.contains(&negated_literal) {
                 clause.literals.retain(|l| *l != negated_literal);
             }
@@ -224,15 +210,9 @@ pub mod solver {
             }
         }
         if pos_is_pure && pos_encountered {
-            Some(Literal {
-                name,
-                sign: Sign::Positive,
-            })
+            Some(Literal::new(name, Sign::Positive))
         } else if neg_is_pure && neg_encountered {
-            Some(Literal {
-                name,
-                sign: Sign::Negative,
-            })
+            Some(Literal::new(name, Sign::Negative))
         } else {
             None
         }
@@ -282,10 +262,7 @@ pub mod solver {
         #[test]
         fn unit_clause_is_unit() {
             let mut v = Vec::new();
-            v.push(Literal {
-                name: 1,
-                sign: Sign::Negative,
-            });
+            v.push(Literal::new(1, Sign::Negative));
             let c = Clause { literals: v };
             assert!(is_unit_clause(&c));
         }
@@ -293,18 +270,9 @@ pub mod solver {
         #[test]
         fn multi_literal_clause_is_not_unit() {
             let mut v = Vec::new();
-            let l1 = Literal {
-                name: 1,
-                sign: Sign::Negative,
-            };
-            let l2 = Literal {
-                name: 1,
-                sign: Sign::Positive,
-            };
-            let l3 = Literal {
-                name: 5,
-                sign: Sign::Positive,
-            };
+            let l1 = Literal::new(1, Sign::Negative);
+            let l2 = Literal::new(1, Sign::Positive);
+            let l3 = Literal::new(5, Sign::Positive);
             v.push(l1);
             v.push(l2);
             v.push(l3);
@@ -332,10 +300,7 @@ pub mod solver {
         #[test]
         fn first_unit_clause_in_single_elem_vec() {
             let c1 = Clause {
-                literals: vec![Literal {
-                    name: 1,
-                    sign: Sign::Negative,
-                }],
+                literals: vec![Literal::new(1, Sign::Negative)],
             };
             let clauses = vec![c1];
             let obtained_literals = &get_first_unit_clause(&clauses).unwrap().literals;
@@ -348,16 +313,10 @@ pub mod solver {
         #[test]
         fn first_unit_clause_of_multiple_in_vec() {
             let c1 = Clause {
-                literals: vec![Literal {
-                    name: 2,
-                    sign: Sign::Positive,
-                }],
+                literals: vec![Literal::new(2, Sign::Positive)],
             };
             let c2 = Clause {
-                literals: vec![Literal {
-                    name: 1,
-                    sign: Sign::Negative,
-                }],
+                literals: vec![Literal::new(1, Sign::Negative)],
             };
             let clauses = vec![c1, c2];
             let obtained_literals = &get_first_unit_clause(&clauses).unwrap().literals;
@@ -371,37 +330,19 @@ pub mod solver {
         fn first_unit_clause_is_not_first_elem() {
             let c1 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(2, Sign::Positive),
+                    Literal::new(1, Sign::Positive),
                 ],
             };
             let c2 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(1, Sign::Negative),
+                    Literal::new(2, Sign::Negative),
+                    Literal::new(3, Sign::Positive),
                 ],
             };
             let c3 = Clause {
-                literals: vec![Literal {
-                    name: 1,
-                    sign: Sign::Positive,
-                }],
+                literals: vec![Literal::new(1, Sign::Positive)],
             };
             let clauses = vec![c1, c2, c3];
             let obtained_literals = &get_first_unit_clause(&clauses).unwrap().literals;
@@ -425,10 +366,7 @@ pub mod solver {
         #[test]
         fn eliminate_unit_clauses_where_only_unit_clause() {
             let c1 = Clause {
-                literals: vec![Literal {
-                    name: 1,
-                    sign: Sign::Positive,
-                }],
+                literals: vec![Literal::new(1, Sign::Positive)],
             };
             let clauses = vec![c1];
             let formula = CNFFormula { clauses };
@@ -443,14 +381,8 @@ pub mod solver {
         fn eliminate_unit_clauses_where_only_non_unit_clause() {
             let c1 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(1, Sign::Positive),
+                    Literal::new(2, Sign::Negative),
                 ],
             };
             let clauses = vec![c1];
@@ -465,42 +397,21 @@ pub mod solver {
         fn eliminate_unit_clauses_where_multiple_non_unit_clauses() {
             let c1 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(2, Sign::Positive),
+                    Literal::new(1, Sign::Positive),
                 ],
             };
             let c2 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(1, Sign::Negative),
+                    Literal::new(2, Sign::Negative),
+                    Literal::new(3, Sign::Positive),
                 ],
             };
             let c3 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(1, Sign::Negative),
+                    Literal::new(2, Sign::Negative),
                 ],
             };
             let clauses = vec![c1, c2, c3];
@@ -515,37 +426,19 @@ pub mod solver {
         fn eliminate_unit_clauses_where_multiple_clauses_one_unrelated_unit() {
             let c1 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(2, Sign::Positive),
+                    Literal::new(1, Sign::Positive),
                 ],
             };
             let c2 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(1, Sign::Negative),
+                    Literal::new(2, Sign::Negative),
+                    Literal::new(3, Sign::Positive),
                 ],
             };
             let c3 = Clause {
-                literals: vec![Literal {
-                    name: 4,
-                    sign: Sign::Negative,
-                }],
+                literals: vec![Literal::new(4, Sign::Negative)],
             };
             let c1_copy = c1.clone();
             let c2_copy = c2.clone();
@@ -562,37 +455,19 @@ pub mod solver {
         fn eliminate_unit_clauses_where_one_unit_leads_to_full_solution() {
             let c1 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(2, Sign::Positive),
+                    Literal::new(1, Sign::Positive),
                 ],
             };
             let c2 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(1, Sign::Negative),
+                    Literal::new(2, Sign::Negative),
+                    Literal::new(3, Sign::Positive),
                 ],
             };
             let c3 = Clause {
-                literals: vec![Literal {
-                    name: 1,
-                    sign: Sign::Negative,
-                }],
+                literals: vec![Literal::new(1, Sign::Negative)],
             };
             let clauses = vec![c1, c2, c3];
             let formula = CNFFormula { clauses };
@@ -608,49 +483,25 @@ pub mod solver {
         fn eliminate_unit_clauses_where_one_unit_affects_clauses_but_doesnt_trigger_more_elims() {
             let c1 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 4,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(2, Sign::Positive),
+                    Literal::new(4, Sign::Positive),
                 ],
             };
             let c2 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(1, Sign::Negative),
+                    Literal::new(2, Sign::Negative),
+                    Literal::new(3, Sign::Positive),
                 ],
             };
             let c3 = Clause {
-                literals: vec![Literal {
-                    name: 1,
-                    sign: Sign::Positive,
-                }],
+                literals: vec![Literal::new(1, Sign::Positive)],
             };
             let c1_copy = c1.clone();
             let modified_c2 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(2, Sign::Negative),
+                    Literal::new(3, Sign::Positive),
                 ],
             };
             let clauses = vec![c1, c2, c3];
@@ -665,28 +516,16 @@ pub mod solver {
         #[test]
         fn eliminate_unit_clauses_where_multiple_distinct_units() {
             let c1 = Clause {
-                literals: vec![Literal {
-                    name: 1,
-                    sign: Sign::Positive,
-                }],
+                literals: vec![Literal::new(1, Sign::Positive)],
             };
             let c2 = Clause {
-                literals: vec![Literal {
-                    name: 3,
-                    sign: Sign::Negative,
-                }],
+                literals: vec![Literal::new(3, Sign::Negative)],
             };
             let c3 = Clause {
-                literals: vec![Literal {
-                    name: 100,
-                    sign: Sign::Positive,
-                }],
+                literals: vec![Literal::new(100, Sign::Positive)],
             };
             let c4 = Clause {
-                literals: vec![Literal {
-                    name: 5,
-                    sign: Sign::Negative,
-                }],
+                literals: vec![Literal::new(5, Sign::Negative)],
             };
             let clauses = vec![c1, c2, c3, c4];
             let formula = CNFFormula { clauses };
@@ -710,28 +549,19 @@ pub mod solver {
         #[test]
         fn var_has_pure_literal_one_clause_one_literal() {
             let clause = Clause {
-                literals: vec![Literal {
-                    name: 1,
-                    sign: Sign::Positive,
-                }],
+                literals: vec![Literal::new(1, Sign::Positive)],
             };
             let clauses = vec![clause];
             assert_eq!(
                 var_has_pure_literal(&clauses, 1),
-                Some(Literal {
-                    name: 1,
-                    sign: Sign::Positive
-                })
+                Some(Literal::new(1, Sign::Positive))
             );
         }
 
         #[test]
         fn var_has_pure_literal_one_clause_one_lit_diff_name() {
             let clause = Clause {
-                literals: vec![Literal {
-                    name: 1,
-                    sign: Sign::Positive,
-                }],
+                literals: vec![Literal::new(1, Sign::Positive)],
             };
             let clauses = vec![clause];
             assert_eq!(var_has_pure_literal(&clauses, 2), None);
@@ -741,23 +571,14 @@ pub mod solver {
         fn var_has_pure_literal_one_clause_multi_non_conflicting_lits() {
             let clause = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(1, Sign::Positive),
+                    Literal::new(2, Sign::Negative),
                 ],
             };
             let clauses = vec![clause];
             assert_eq!(
                 var_has_pure_literal(&clauses, 2),
-                Some(Literal {
-                    name: 2,
-                    sign: Sign::Negative
-                })
+                Some(Literal::new(2, Sign::Negative))
             );
         }
 
@@ -765,14 +586,8 @@ pub mod solver {
         fn var_has_pure_literal_one_clause_conflicting_lits() {
             let clause = Clause {
                 literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(2, Sign::Positive),
+                    Literal::new(2, Sign::Negative),
                 ],
             };
             let clauses = vec![clause];
@@ -783,38 +598,20 @@ pub mod solver {
         fn var_has_pure_literal_multi_clauses_no_pure() {
             let c1 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(1, Sign::Positive),
+                    Literal::new(2, Sign::Negative),
                 ],
             };
             let c2 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(1, Sign::Negative),
+                    Literal::new(3, Sign::Positive),
                 ],
             };
             let c3 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(2, Sign::Positive),
+                    Literal::new(3, Sign::Negative),
                 ],
             };
             let clauses = vec![c1, c2, c3];
@@ -827,47 +624,26 @@ pub mod solver {
         fn var_has_pure_literal_multi_clauses_one_pure() {
             let c1 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(1, Sign::Positive),
+                    Literal::new(2, Sign::Negative),
                 ],
             };
             let c2 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(1, Sign::Negative),
+                    Literal::new(3, Sign::Positive),
                 ],
             };
             let c3 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(2, Sign::Negative),
+                    Literal::new(3, Sign::Negative),
                 ],
             };
             let clauses = vec![c1, c2, c3];
             assert_eq!(
                 var_has_pure_literal(&clauses, 2),
-                Some(Literal {
-                    name: 2,
-                    sign: Sign::Negative
-                })
+                Some(Literal::new(2, Sign::Negative))
             );
             assert_eq!(var_has_pure_literal(&clauses, 1), None);
             assert_eq!(var_has_pure_literal(&clauses, 3), None);
@@ -901,10 +677,7 @@ pub mod solver {
         fn eliminate_pure_literals_just_unit_clause() {
             let formula = CNFFormula {
                 clauses: vec![Clause {
-                    literals: vec![Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    }],
+                    literals: vec![Literal::new(1, Sign::Positive)],
                 }],
             };
             let mut assignment = HashMap::new();
@@ -920,18 +693,9 @@ pub mod solver {
             let formula = CNFFormula {
                 clauses: vec![Clause {
                     literals: vec![
-                        Literal {
-                            name: 1,
-                            sign: Sign::Positive,
-                        },
-                        Literal {
-                            name: 2,
-                            sign: Sign::Negative,
-                        },
-                        Literal {
-                            name: 3,
-                            sign: Sign::Positive,
-                        },
+                        Literal::new(1, Sign::Positive),
+                        Literal::new(2, Sign::Negative),
+                        Literal::new(3, Sign::Positive),
                     ],
                 }],
             };
@@ -944,14 +708,8 @@ pub mod solver {
 
         #[test]
         fn eliminate_pure_literals_one_clause_conflicting_lits() {
-            let l1 = Literal {
-                name: 2,
-                sign: Sign::Negative,
-            };
-            let l2 = Literal {
-                name: 2,
-                sign: Sign::Positive,
-            };
+            let l1 = Literal::new(2, Sign::Negative);
+            let l2 = Literal::new(2, Sign::Positive);
             let formula = CNFFormula {
                 clauses: vec![Clause {
                     literals: vec![l1, l2],
@@ -973,38 +731,20 @@ pub mod solver {
         fn eliminate_pure_literals_multi_clauses_no_pure_lits() {
             let c1 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(1, Sign::Positive),
+                    Literal::new(2, Sign::Negative),
                 ],
             };
             let c2 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(1, Sign::Negative),
+                    Literal::new(3, Sign::Positive),
                 ],
             };
             let c3 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(2, Sign::Positive),
+                    Literal::new(3, Sign::Negative),
                 ],
             };
             let c1_copy = c1.clone();
@@ -1028,45 +768,24 @@ pub mod solver {
             // each time.
             let c1 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(1, Sign::Positive),
+                    Literal::new(2, Sign::Negative),
                 ],
             };
             let c2 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Positive,
-                    },
+                    Literal::new(1, Sign::Negative),
+                    Literal::new(3, Sign::Positive),
                 ],
             };
             let c3 = Clause {
                 literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Negative,
-                    },
+                    Literal::new(2, Sign::Negative),
+                    Literal::new(3, Sign::Negative),
                 ],
             };
             let c4 = Clause {
-                literals: vec![Literal {
-                    name: 3,
-                    sign: Sign::Negative,
-                }],
+                literals: vec![Literal::new(3, Sign::Negative)],
             };
             let formula = CNFFormula {
                 clauses: vec![c1, c2, c3, c4],
@@ -1081,220 +800,6 @@ pub mod solver {
         }
 
         // --- solve ---
-
-        #[test]
-        fn solve_empty_formula() {
-            let formula = CNFFormula { clauses: vec![] };
-            assert_eq!(solve(formula), SATResult::SAT(HashMap::new()));
-        }
-
-        #[test]
-        fn solve_formula_with_only_empty_clause() {
-            let formula = CNFFormula {
-                clauses: vec![Clause { literals: vec![] }],
-            };
-            assert_eq!(solve(formula), SATResult::UNSAT);
-        }
-
-        #[test]
-        fn solve_formula_with_misc_clauses_and_empty_clause() {
-            let c1 = Clause {
-                literals: vec![Literal {
-                    name: 1,
-                    sign: Sign::Positive,
-                }],
-            };
-            let c2 = Clause {
-                literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                    Literal {
-                        name: 2,
-                        sign: Sign::Positive,
-                    },
-                ],
-            };
-            let c3 = Clause { literals: vec![] };
-            let formula = CNFFormula {
-                clauses: vec![c1, c2, c3],
-            };
-            assert_eq!(solve(formula), SATResult::UNSAT);
-        }
-
-        #[test]
-        fn solve_formula_with_only_a_unit_clause() {
-            let clauses = vec![Clause {
-                literals: vec![Literal {
-                    name: 1,
-                    sign: Sign::Positive,
-                }],
-            }];
-            let formula = CNFFormula { clauses };
-            let mut soln = HashMap::new();
-            soln.insert(1, true);
-            assert_eq!(solve(formula), SATResult::SAT(soln));
-        }
-
-        #[test]
-        fn solve_formula_with_multiple_unit_clauses() {
-            let clauses = vec![
-                Clause {
-                    literals: vec![Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    }],
-                },
-                Clause {
-                    literals: vec![Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    }],
-                },
-                Clause {
-                    literals: vec![Literal {
-                        name: 5,
-                        sign: Sign::Positive,
-                    }],
-                },
-            ];
-            let formula = CNFFormula { clauses };
-            let mut soln = HashMap::new();
-            soln.insert(1, true);
-            soln.insert(2, false);
-            soln.insert(5, true);
-            assert_eq!(solve(formula), SATResult::SAT(soln));
-        }
-
-        #[test]
-        fn solve_formula_with_one_clause() {
-            // Only one clause, so any of the literals could be true
-            let l1 = Literal {
-                name: 1,
-                sign: Sign::Positive,
-            };
-            let l2 = Literal {
-                name: 2,
-                sign: Sign::Positive,
-            };
-            let l3 = Literal {
-                name: 5,
-                sign: Sign::Negative,
-            };
-            let clauses = vec![Clause {
-                literals: vec![l1, l2, l3],
-            }];
-            let soln = solve(CNFFormula { clauses });
-            match soln {
-                SATResult::UNSAT => assert!(false),
-                SATResult::SAT(soln) => assert!(
-                    *soln.get(&1).unwrap() || *soln.get(&2).unwrap() || !*soln.get(&5).unwrap()
-                ),
-            };
-        }
-
-        #[test]
-        fn solve_formula_with_contradictory_unit_clauses() {
-            let clauses = vec![
-                Clause {
-                    literals: vec![Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    }],
-                },
-                Clause {
-                    literals: vec![Literal {
-                        name: 2,
-                        sign: Sign::Negative,
-                    }],
-                },
-                Clause {
-                    literals: vec![Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    }],
-                },
-            ];
-            let formula = CNFFormula { clauses };
-            assert_eq!(solve(formula), SATResult::UNSAT);
-        }
-
-        #[test]
-        fn solve_non_trivial_unsat_formula() {
-            let one_pos = Literal {
-                name: 1,
-                sign: Sign::Positive,
-            };
-            let one_neg = Literal {
-                name: 1,
-                sign: Sign::Negative,
-            };
-            let two_pos = Literal {
-                name: 2,
-                sign: Sign::Positive,
-            };
-            let two_neg = Literal {
-                name: 2,
-                sign: Sign::Negative,
-            };
-            let c1 = Clause {
-                literals: vec![one_pos, two_pos],
-            };
-            let c2 = Clause {
-                literals: vec![one_pos, two_neg],
-            };
-            let c3 = Clause {
-                literals: vec![one_neg, two_pos],
-            };
-            let c4 = Clause {
-                literals: vec![one_neg, two_neg],
-            };
-            let formula = CNFFormula {
-                clauses: vec![c1, c2, c3, c4],
-            };
-            assert_eq!(solve(formula), SATResult::UNSAT);
-        }
-
-        #[test]
-        fn solve_simple_sat_example() {
-            let c1 = Clause {
-                literals: vec![
-                    Literal {
-                        name: 1,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Negative,
-                    },
-                ],
-            };
-            let c2 = Clause {
-                literals: vec![
-                    Literal {
-                        name: 2,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 3,
-                        sign: Sign::Positive,
-                    },
-                    Literal {
-                        name: 1,
-                        sign: Sign::Negative,
-                    },
-                ],
-            };
-            let formula = CNFFormula {
-                clauses: vec![c1, c2],
-            };
-            if let SATResult::SAT(soln) = solve(formula) {
-                assert!(*soln.get(&2).unwrap());
-                assert!(*soln.get(&1).unwrap() || !*soln.get(&3).unwrap());
-            } else {
-                assert!(false);
-            }
-        }
+        // -> tests in tests directory
     }
 }

@@ -28,4 +28,10 @@ pub mod cnf {
         SAT(HashMap<u32, bool>),
         UNSAT,
     }
+
+    impl Literal {
+        pub fn new(name: u32, sign: Sign) -> Literal {
+            Literal { name, sign }
+        }
+    }
 }
