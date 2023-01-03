@@ -1,5 +1,6 @@
 pub mod cnf {
     use std::collections::HashMap;
+    use std::fmt;
 
     #[derive(Debug, PartialEq, Eq, Clone, Copy)]
     pub enum Sign {
@@ -32,6 +33,22 @@ pub mod cnf {
     impl Literal {
         pub fn new(name: u32, sign: Sign) -> Literal {
             Literal { name, sign }
+        }
+    }
+
+    impl fmt::Display for SATResult {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            match self {
+                Self::UNSAT => write!(f, "UNSAT"),
+                Self::SAT(soln) => {
+                    let mut soln_string = String::from("SAT. Satisfying assignment: {\n");
+                    for (var, truth_val) in soln.iter() {
+                        soln_string.push_str(&format!("  {}: {}\n", var, truth_val));
+                    }
+                    soln_string.push('}');
+                    write!(f, "{}", &soln_string)
+                }
+            }
         }
     }
 }

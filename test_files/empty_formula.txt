@@ -1,0 +1,4 @@
+c 
+c This is an empty formula
+c 
+p cnf 0 0
