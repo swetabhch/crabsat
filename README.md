@@ -8,7 +8,7 @@ I hope to build this out with time, both to include more solving/explainability 
 
 - [x] Creating representations for literals, clauses, and CNF formulae.
 - [x] Implementing a solving algorithm based on pure literal elimination and unit clause propagation.
-- [ ] Writing a parser that takes in boolean formulae in string form via the DIMACS CNF format and converts them to the internal representation of CNF formulae.
+- [x] Writing a parser that takes in boolean formulae in string form via the DIMACS CNF format and converts them to the internal representation of CNF formulae.
 - [ ] Writing a CLI to feed in such formulae manually and via files and produce solutions as output.
 - [ ] Adding more explainability features like UNSAT cores!
 - [ ] Packaging this in a more reproducible way.
