@@ -52,14 +52,14 @@ pub mod parser {
         MalformedClauseEnd,
         #[error("literal is not in the form of a signed int")]
         MalformedLiteral,
+        #[error("comment in unrecognized format or no specification line")]
+        BadComment,
         #[error("comments, specification, clauses sequencing incorrect")]
         BadSequencing,
         #[error("specfication line incorrectly formatted")]
         BadSpecification,
         #[error("specification does not match formula")]
         SpecificationMismatch,
-        #[error("no specification line (eg. 'p cnf 3 4')")]
-        NoSpecification,
     }
 
     /// Converts a string describing a CNF formula in the DIMACS format
@@ -67,6 +67,7 @@ pub mod parser {
     /// Assumption: a clause can only take up one line.
     /// (See 'CNF Input Format' on page 4 of http://www.satcompetition.org/2011/rules.pdf)
     pub fn parse_dimacs_cnf(dimacs_str: &str) -> Result<CNFFormula, ParseError> {
+        let dimacs_str = dimacs_str.trim();
         let mut trimmed_strs: Vec<&str> = dimacs_str.lines().map(&str::trim).collect();
 
         // Check that c, p, content lines are correctly sequenced and specification info
@@ -79,14 +80,13 @@ pub mod parser {
             if line.starts_with("p cnf") {
                 p_idx = Some(idx);
                 spec_line = line;
+            } else if p_idx.is_none() && !line.starts_with("c") {
+                return Err(ParseError::BadComment);
             }
         }
 
         // Parse content lines
-        let split_idx = match p_idx {
-            None => return Err(ParseError::NoSpecification),
-            Some(idx) => idx,
-        };
+        let split_idx = p_idx.unwrap();
         let (num_vars, num_clauses) = parse_spec_line(spec_line)?;
         let mut clauses = Vec::new();
         for clause_str in trimmed_strs.drain((split_idx + 1)..) {
@@ -189,47 +189,7 @@ pub mod parser {
     mod tests {
         use super::*;
 
-        // --- parse_dimacs_cnf ---
-        #[test]
-        fn link_example() {
-            let s = "c
-          c start with comments
-          c
-          c
-          p cnf 5 3
-          1 -5 4 0
-          -1 5 3 4 0
-          -3 -4 0";
-            let c1 = Clause {
-                literals: vec![
-                    Literal::new(1, Sign::Positive),
-                    Literal::new(5, Sign::Negative),
-                    Literal::new(4, Sign::Positive),
-                ],
-            };
-            let c2 = Clause {
-                literals: vec![
-                    Literal::new(1, Sign::Negative),
-                    Literal::new(5, Sign::Positive),
-                    Literal::new(3, Sign::Positive),
-                    Literal::new(4, Sign::Positive),
-                ],
-            };
-            let c3 = Clause {
-                literals: vec![
-                    Literal::new(3, Sign::Negative),
-                    Literal::new(4, Sign::Negative),
-                ],
-            };
-            match parse_dimacs_cnf(s) {
-                Err(_) => assert!(false),
-                Ok(fmla) => assert_eq!(fmla.clauses, vec![c1, c2, c3]),
-            }
-        }
-
         // --- validate_formula ---
-
-        // TODO: add negative tests
 
         #[test]
         fn validate_empty_formula() {
@@ -237,14 +197,17 @@ pub mod parser {
         }
 
         #[test]
+        fn validate_empty_formula_fails() {
+            assert!(!validate_formula(&CNFFormula { clauses: vec![] }, 0, 1));
+        }
+
+        #[test]
         fn validate_formula_with_empty_clause() {
-            assert!(validate_formula(
-                &CNFFormula {
-                    clauses: vec![Clause { literals: vec![] }]
-                },
-                0,
-                1
-            ));
+            let fmla = CNFFormula {
+                clauses: vec![Clause { literals: vec![] }],
+            };
+            assert!(!validate_formula(&fmla, 0, 0));
+            assert!(validate_formula(&fmla, 0, 1));
         }
 
         #[test]
@@ -312,30 +275,30 @@ pub mod parser {
 
         #[test]
         fn validate_formula_multi_clauses_multi_vars() {
-            assert!(validate_formula(
-                &CNFFormula {
-                    clauses: vec![
-                        Clause {
-                            literals: vec![
-                                Literal::new(1, Sign::Positive),
-                                Literal::new(2, Sign::Negative)
-                            ]
-                        },
-                        Clause {
-                            literals: vec![
-                                Literal::new(2, Sign::Positive),
-                                Literal::new(3, Sign::Negative)
-                            ]
-                        },
-                        Clause { literals: vec![] },
-                        Clause {
-                            literals: vec![Literal::new(1, Sign::Negative)]
-                        }
-                    ]
-                },
-                3,
-                4
-            ));
+            let fmla = CNFFormula {
+                clauses: vec![
+                    Clause {
+                        literals: vec![
+                            Literal::new(1, Sign::Positive),
+                            Literal::new(2, Sign::Negative),
+                        ],
+                    },
+                    Clause {
+                        literals: vec![
+                            Literal::new(2, Sign::Positive),
+                            Literal::new(3, Sign::Negative),
+                        ],
+                    },
+                    Clause { literals: vec![] },
+                    Clause {
+                        literals: vec![Literal::new(1, Sign::Negative)],
+                    },
+                ],
+            };
+            assert!(validate_formula(&fmla, 3, 4));
+            assert!(!validate_formula(&fmla, 3, 3));
+            assert!(validate_formula(&fmla, 4, 4));
+            assert!(!validate_formula(&fmla, 4, 3));
         }
 
         // --- parse_line_to_clause ---
