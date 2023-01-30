@@ -1,5 +1,5 @@
 use crabsat::cnf::cnf::*;
-use crabsat::cnf::parser::*;
+use crabsat::parser::parser::*;
 
 #[test]
 fn parse_simple_multi_var_multi_clause_formula() {

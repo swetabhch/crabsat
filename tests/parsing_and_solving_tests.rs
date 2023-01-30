@@ -1,6 +1,6 @@
 use crabsat::cnf::cnf::*;
-use crabsat::cnf::parser::*;
-use crabsat::solver::*;
+use crabsat::parser::parser::*;
+use crabsat::solver::solver::*;
 use std::collections::HashMap;
 
 #[test]

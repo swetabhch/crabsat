@@ -1,6 +1,6 @@
 use clap::Parser;
-use crabsat::cnf::parser::*;
-use crabsat::solver::*;
+use crabsat::parser::parser::*;
+use crabsat::solver::solver::*;
 use std::{fs, process};
 
 /// Take a file whose contents represent a CNF boolean formula written

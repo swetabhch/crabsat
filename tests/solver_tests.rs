@@ -1,5 +1,5 @@
 use crabsat::cnf::cnf::*;
-use crabsat::solver::*;
+use crabsat::solver::solver::*;
 use std::collections::HashMap;
 
 #[test]
