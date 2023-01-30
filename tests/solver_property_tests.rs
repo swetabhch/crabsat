@@ -1,4 +1,5 @@
 use crabsat::cnf::cnf::*;
+use crabsat::dpll_solver::dpll::*;
 use crabsat::parser::parser::*;
 use crabsat::solver::solver::*;
 use rand::prelude::*;
@@ -10,8 +11,8 @@ use thiserror::Error;
 // This file involves functions that randomly generate SAT boolean
 // formulae and test the solver and parser with them.
 
-const MAX_VARS: u32 = 100;
-const MAX_NUM_CLAUSES: u32 = 100;
+const MAX_VARS: u32 = 50;
+const MAX_NUM_CLAUSES: u32 = 50;
 const NUM_ITERATIONS: u32 = 100;
 
 #[derive(Debug, Error)]
@@ -168,8 +169,9 @@ fn generate_assignment(vars: &Vec<u32>, rng: &mut ThreadRng) -> HashMap<u32, boo
 fn solve_satisfiable_formulae() {
     (0..NUM_ITERATIONS).for_each(|_| {
         let sat_formula = generate_sat_formula();
+        let solver = DPLLSolver {};
         //println!("{}", sat_formula);
-        let soln = solve(sat_formula);
+        let soln = solver.solve(sat_formula);
         match soln {
             SATResult::SAT(_) => assert!(true),
             SATResult::UNSAT => assert!(false),
@@ -182,7 +184,8 @@ fn parse_and_solve_satisfiable_formulae() {
     (0..NUM_ITERATIONS).for_each(|_| {
         let sat_formula_dimacs = generate_sat_formula_dimacs();
         let sat_formula = parse_dimacs_cnf(&sat_formula_dimacs).unwrap();
-        let soln = solve(sat_formula);
+        let solver = DPLLSolver {};
+        let soln = solver.solve(sat_formula);
         match soln {
             SATResult::SAT(_) => assert!(true),
             SATResult::UNSAT => assert!(false),

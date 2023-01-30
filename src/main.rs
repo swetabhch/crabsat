@@ -1,4 +1,5 @@
 use clap::Parser;
+use crabsat::dpll_solver::dpll::*;
 use crabsat::parser::parser::*;
 use crabsat::solver::solver::*;
 use std::{fs, process};
@@ -35,5 +36,6 @@ fn main() {
             process::exit(1);
         }
     };
-    println!("{}", solve(formula));
+    let solver = DPLLSolver {};
+    println!("{}", solver.solve(formula));
 }

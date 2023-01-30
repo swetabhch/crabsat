@@ -1,11 +1,13 @@
 use crabsat::cnf::cnf::*;
+use crabsat::dpll_solver::dpll::*;
 use crabsat::solver::solver::*;
 use std::collections::HashMap;
 
 #[test]
 fn solve_empty_formula() {
     let formula = CNFFormula { clauses: vec![] };
-    assert_eq!(solve(formula), SATResult::SAT(HashMap::new()));
+    let solver = DPLLSolver {};
+    assert_eq!(solver.solve(formula), SATResult::SAT(HashMap::new()));
 }
 
 #[test]
@@ -13,7 +15,8 @@ fn solve_formula_with_only_empty_clause() {
     let formula = CNFFormula {
         clauses: vec![Clause { literals: vec![] }],
     };
-    assert_eq!(solve(formula), SATResult::UNSAT);
+    let solver = DPLLSolver {};
+    assert_eq!(solver.solve(formula), SATResult::UNSAT);
 }
 
 #[test]
@@ -31,7 +34,8 @@ fn solve_formula_with_misc_clauses_and_empty_clause() {
     let formula = CNFFormula {
         clauses: vec![c1, c2, c3],
     };
-    assert_eq!(solve(formula), SATResult::UNSAT);
+    let solver = DPLLSolver {};
+    assert_eq!(solver.solve(formula), SATResult::UNSAT);
 }
 
 #[test]
@@ -42,7 +46,8 @@ fn solve_formula_with_only_a_unit_clause() {
     let formula = CNFFormula { clauses };
     let mut soln = HashMap::new();
     soln.insert(1, true);
-    assert_eq!(solve(formula), SATResult::SAT(soln));
+    let solver = DPLLSolver {};
+    assert_eq!(solver.solve(formula), SATResult::SAT(soln));
 }
 
 #[test]
@@ -63,7 +68,8 @@ fn solve_formula_with_multiple_unit_clauses() {
     soln.insert(1, true);
     soln.insert(2, false);
     soln.insert(5, true);
-    assert_eq!(solve(formula), SATResult::SAT(soln));
+    let solver = DPLLSolver {};
+    assert_eq!(solver.solve(formula), SATResult::SAT(soln));
 }
 
 #[test]
@@ -75,7 +81,8 @@ fn solve_formula_with_one_clause() {
     let clauses = vec![Clause {
         literals: vec![l1, l2, l3],
     }];
-    let soln = solve(CNFFormula { clauses });
+    let solver = DPLLSolver {};
+    let soln = solver.solve(CNFFormula { clauses });
     match soln {
         SATResult::UNSAT => assert!(false),
         SATResult::SAT(soln) => {
@@ -97,8 +104,9 @@ fn solve_formula_with_contradictory_unit_clauses() {
             literals: vec![Literal::new(1, Sign::Negative)],
         },
     ];
+    let solver = DPLLSolver {};
     let formula = CNFFormula { clauses };
-    assert_eq!(solve(formula), SATResult::UNSAT);
+    assert_eq!(solver.solve(formula), SATResult::UNSAT);
 }
 
 #[test]
@@ -122,7 +130,8 @@ fn solve_non_trivial_unsat_formula() {
     let formula = CNFFormula {
         clauses: vec![c1, c2, c3, c4],
     };
-    assert_eq!(solve(formula), SATResult::UNSAT);
+    let solver = DPLLSolver {};
+    assert_eq!(solver.solve(formula), SATResult::UNSAT);
 }
 
 #[test]
@@ -143,7 +152,8 @@ fn solve_simple_sat_example() {
     let formula = CNFFormula {
         clauses: vec![c1, c2],
     };
-    if let SATResult::SAT(soln) = solve(formula) {
+    let solver = DPLLSolver {};
+    if let SATResult::SAT(soln) = solver.solve(formula) {
         assert!(*soln.get(&2).unwrap());
         assert!(*soln.get(&1).unwrap() || !*soln.get(&3).unwrap());
     } else {
