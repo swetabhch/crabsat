@@ -1,16 +1,24 @@
 use crabsat::cnf::cnf::*;
+use crabsat::cnf::parser::*;
 use crabsat::solver::*;
 use rand::prelude::*;
 use rand::seq::SliceRandom;
+use std::cmp;
 use std::collections::HashMap;
+use thiserror::Error;
 
-// This file involves functions that randomly generate SAT and UNSAT boolean
+// This file involves functions that randomly generate SAT boolean
 // formulae and test the solver and parser with them.
 
-const MAX_VARS: u32 = 10;
-const MAX_NUM_CLAUSES: u32 = 10;
-//const MAX_CLAUSE_SIZE: u32 = MAX_VARS + 1;
-const NUM_ITERATIONS: u32 = 50;
+const MAX_VARS: u32 = 20;
+const MAX_NUM_CLAUSES: u32 = 20;
+const NUM_ITERATIONS: u32 = 40;
+
+#[derive(Debug, Error)]
+enum TestError {
+    #[error("cannot generate a true clause error given no variables")]
+    NoVariables,
+}
 
 /// Randomly generates a CNFFormula.
 fn generate_formula() -> CNFFormula {
@@ -20,50 +28,62 @@ fn generate_formula() -> CNFFormula {
     let num_clauses = rng.gen_range(0..MAX_NUM_CLAUSES);
 
     let mut clauses = vec![];
-    (0..num_clauses).for_each(|_| clauses.push(generate_clause(&vars, &HashMap::new(), None)));
+    (0..num_clauses)
+        .for_each(|_| clauses.push(generate_clause(&vars, &HashMap::new(), None).unwrap()));
     CNFFormula { clauses }
 }
 
 /// Randomly generates a CNFFormula representing a satisfiable boolean formula.
 fn generate_sat_formula() -> CNFFormula {
     let mut rng = rand::thread_rng();
-    let num_vars = rng.gen_range(0..MAX_VARS);
-    let vars: Vec<u32> = (1..num_vars).collect();
-    let assignment = generate_assignment(&vars, &mut rng);
     let num_clauses = rng.gen_range(0..MAX_NUM_CLAUSES);
+    if num_clauses == 0 {
+        return CNFFormula { clauses: vec![] };
+    }
+    let num_vars = rng.gen_range(1..MAX_VARS);
+    let vars: Vec<u32> = (1..(num_vars + 1)).collect();
+    let assignment = generate_assignment(&vars, &mut rng);
 
     // SAT => all clauses must evaluate to true
     let mut clauses = vec![];
-    (0..num_clauses).for_each(|_| clauses.push(generate_clause(&vars, &assignment, Some(true))));
+    (0..num_clauses)
+        .for_each(|_| clauses.push(generate_clause(&vars, &assignment, Some(true)).unwrap()));
     CNFFormula { clauses }
 }
 
-/// Randomly generates a CNFFormula representing a unsatisfiable boolean formula.
-// fn generate_unsat_formula() -> CNFFormula {
-//     let mut rng = rand::thread_rng();
-//     let num_vars = rng.gen_range(0..MAX_VARS);
-//     let vars: Vec<u32> = (1..num_vars).collect();
-//     let assignment = generate_assignment(&vars, &mut rng);
+/// Converts a clause into DIMACS CNF format, eg. "1 -3 4 0\n"
+fn clause_to_dimacs(clause: &Clause) -> String {
+    let mut clause_str = String::new();
+    clause.literals.iter().for_each(|l| {
+        clause_str.push_str(&l.to_string());
+        clause_str.push_str(" ");
+    });
+    clause_str.push_str("0\n");
+    clause_str
+}
 
-//     // UNSAT => at least one clause must evaluate to false
-//     // starting from 1 here because an UNSAT CNF formula must have at least one clause
-//     let num_clauses = rng.gen_range(1..MAX_NUM_CLAUSES);
-//     let num_false_clauses = if num_clauses == 1 {
-//         1
-//     } else {
-//         rng.gen_range(1..num_clauses)
-//     };
-//     let mut clauses = vec![];
+/// Randomly generates a string literal of a CNF formula, in DIMACS format,
+/// representing a satisfiable boolean formula.
+fn generate_sat_formula_dimacs() -> String {
+    let mut rng = rand::thread_rng();
+    let num_clauses = rng.gen_range(0..MAX_NUM_CLAUSES);
+    if num_clauses == 0 {
+        return String::from("p cnf 0 0");
+    }
+    let num_vars = rng.gen_range(1..MAX_VARS);
+    let vars: Vec<u32> = (1..(num_vars + 1)).collect();
+    let assignment = generate_assignment(&vars, &mut rng);
 
-//     (0..num_false_clauses)
-//         .for_each(|_| clauses.push(generate_clause(&vars, &assignment, Some(false))));
-//     let num_true_clauses = num_clauses - num_false_clauses;
-//     if num_true_clauses > 0 {
-//         (0..num_true_clauses)
-//             .for_each(|_| clauses.push(generate_clause(&vars, &assignment, Some(false))));
-//     }
-//     CNFFormula { clauses }
-// }
+    // SAT => all clauses must evaluate to true
+    let mut clauses = vec![];
+    (0..num_clauses)
+        .for_each(|_| clauses.push(generate_clause(&vars, &assignment, Some(true)).unwrap()));
+    let mut formula_str = String::from(format!("p cnf {} {}\n", num_vars, num_clauses));
+    clauses
+        .iter()
+        .for_each(|c| formula_str.push_str(&clause_to_dimacs(c)));
+    formula_str
+}
 
 /// Short helper to convert from a boolean value to a corresponding sign.
 fn bool_to_sign(bool_value: bool) -> Sign {
@@ -81,35 +101,34 @@ fn generate_clause(
     vars: &Vec<u32>,
     assignment: &HashMap<u32, bool>,
     truth_val: Option<bool>,
-) -> Clause {
+) -> Result<Clause, TestError> {
+    // Error if a true clause is expected but `vars` is empty
+    if vars.is_empty() && truth_val == Some(true) {
+        return Err(TestError::NoVariables);
+    }
+
     let mut rng = rand::thread_rng();
 
     // Choose the subset of variables that will go into the clause
     let mut vars_copy = vars.clone();
-    let min_true_vars = if let Some(b) = truth_val {
-        if b {
-            1
-        } else {
-            0
-        }
-    } else {
-        0
-    };
+    let min_true_vars = if truth_val == Some(true) { 1 } else { 0 };
+
     let clause_size = if vars.len() > 0 {
-        rng.gen_range(min_true_vars..(vars.len() + 1))
+        rng.gen_range(min_true_vars..(cmp::max(vars.len(), min_true_vars) + 1))
     } else {
         0
     };
     if clause_size == 0 {
-        return Clause { literals: vec![] };
+        return Ok(Clause { literals: vec![] });
     }
-    vars_copy.shuffle(&mut rng);
 
+    // Choose a random subset of variables to include in the clause
+    vars_copy.shuffle(&mut rng);
     let chosen_vars: Vec<u32> = vars_copy.drain(0..clause_size).collect();
 
     // Depending on truth_val, create literals from the chosen vars
     let mut literals = vec![];
-    let num_true_vars = rng.gen_range(min_true_vars..(clause_size + min_true_vars));
+    let num_true_vars = rng.gen_range(min_true_vars..(clause_size + 1));
     let true_vars: Vec<u32> = chosen_vars
         .choose_multiple(&mut rng, num_true_vars)
         .cloned()
@@ -132,7 +151,7 @@ fn generate_clause(
         literals.push(Literal::new(var, sign));
     }
 
-    Clause { literals }
+    Ok(Clause { literals })
 }
 
 /// Given a list of variables, this generates an assignment mapping each of them to a
@@ -145,27 +164,24 @@ fn generate_assignment(vars: &Vec<u32>, rng: &mut ThreadRng) -> HashMap<u32, boo
     assignment
 }
 
-// #[test]
-// fn check_solver_on_unsat_formulae() {
-//     (0..NUM_ITERATIONS).for_each(|_| {
-//         let unsat_formula = generate_unsat_formula();
-//         println!("{}", unsat_formula);
-//         let soln = solve(unsat_formula);
-//         if soln != SATResult::UNSAT {
-//             println!("FAILURE:\n{}", soln);
-//         } else {
-//             println!("SUCCESS");
-//         }
-//         println!("");
-//         // assert_eq!(solve(unsat_formula), SATResult::UNSAT);
-//     });
-// }
-
 #[test]
-fn sat_formulae_are_satisfiable() {
+fn solve_satisfiable_formulae() {
     (0..NUM_ITERATIONS).for_each(|_| {
         let sat_formula = generate_sat_formula();
-        println!("{}", sat_formula);
+        //println!("{}", sat_formula);
+        let soln = solve(sat_formula);
+        match soln {
+            SATResult::SAT(_) => assert!(true),
+            SATResult::UNSAT => assert!(false),
+        }
+    })
+}
+
+#[test]
+fn parse_and_solve_satisfiable_formulae() {
+    (0..NUM_ITERATIONS).for_each(|_| {
+        let sat_formula_dimacs = generate_sat_formula_dimacs();
+        let sat_formula = parse_dimacs_cnf(&sat_formula_dimacs).unwrap();
         let soln = solve(sat_formula);
         match soln {
             SATResult::SAT(_) => assert!(true),
