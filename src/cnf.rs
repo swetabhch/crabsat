@@ -51,6 +51,39 @@ pub mod cnf {
             }
         }
     }
+
+    impl fmt::Display for Literal {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            let sign_str = match self.sign {
+                Sign::Positive => "",
+                Sign::Negative => "-",
+            };
+            write!(f, "{}{}", sign_str, self.name)
+        }
+    }
+
+    impl fmt::Display for Clause {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            let mut literals_str = String::from("");
+            for literal in &self.literals {
+                literals_str.push_str(&format!("{}, ", literal));
+            }
+            write!(f, "clause[{}]", &literals_str)
+        }
+    }
+
+    impl fmt::Display for CNFFormula {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            let mut fmla_string = String::from("Clauses: {\n");
+            let mut clause_num = 1;
+            for clause in &self.clauses {
+                fmla_string.push_str(&format!("  {}. {}\n", clause_num, clause));
+                clause_num += 1;
+            }
+            fmla_string.push('}');
+            write!(f, "{}", &fmla_string)
+        }
+    }
 }
 
 pub mod parser {

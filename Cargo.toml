@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 thiserror = "1.0"
 clap = { version = "4.0", features = ["derive"] }
+quickcheck = "1"
+quickcheck_macros = "1"
+rand = "0.8"
