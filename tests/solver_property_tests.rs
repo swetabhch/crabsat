@@ -22,17 +22,18 @@ enum TestError {
 }
 
 /// Randomly generates a CNFFormula.
-fn generate_formula() -> CNFFormula {
-    let mut rng = rand::thread_rng();
-    let num_vars = rng.gen_range(0..MAX_VARS);
-    let vars: Vec<u32> = (1..num_vars).collect();
-    let num_clauses = rng.gen_range(0..MAX_NUM_CLAUSES);
+/// NOTE: this is currently commented out since we aren't testing for UNSAT PBT yet.
+// fn generate_formula() -> CNFFormula {
+//     let mut rng = rand::thread_rng();
+//     let num_vars = rng.gen_range(0..MAX_VARS);
+//     let vars: Vec<u32> = (1..num_vars).collect();
+//     let num_clauses = rng.gen_range(0..MAX_NUM_CLAUSES);
 
-    let mut clauses = vec![];
-    (0..num_clauses)
-        .for_each(|_| clauses.push(generate_clause(&vars, &HashMap::new(), None).unwrap()));
-    CNFFormula { clauses }
-}
+//     let mut clauses = vec![];
+//     (0..num_clauses)
+//         .for_each(|_| clauses.push(generate_clause(&vars, &HashMap::new(), None).unwrap()));
+//     CNFFormula { clauses }
+// }
 
 /// Randomly generates a CNFFormula representing a satisfiable boolean formula.
 fn generate_sat_formula() -> CNFFormula {
