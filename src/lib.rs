@@ -38,6 +38,36 @@ pub mod solver {
         var_vec
     }
 
+    /// Picks the most frequently occurring variable in a given formula.
+    /// If the given list of variables or formula is empty, return None.
+    /// TODO: test this
+    fn pick_most_freq_var(formula: &CNFFormula) -> Option<u32> {
+        let mut var_counts = HashMap::new();
+        let update_counts_from_clause = |clause: &Clause| {
+            clause.literals.iter().for_each(|lit| {
+                match var_counts.get(&lit.name) {
+                    None => var_counts.insert(lit.name, 1),
+                    Some(count) => var_counts.insert(lit.name, count + 1),
+                };
+            });
+        };
+        formula.clauses.iter().for_each(update_counts_from_clause);
+        let (acc_var, _) = var_counts
+            .iter()
+            .fold((0, 0), |(acc_var, acc_freq), (var, freq)| {
+                if *freq > acc_freq {
+                    (*var, *freq)
+                } else {
+                    (acc_var, acc_freq)
+                }
+            });
+        if acc_var == 0 {
+            None
+        } else {
+            Some(acc_var)
+        }
+    }
+
     /// Recursively tries to find a satisfying truth assignment for a given formula
     /// given the current assignment. Returns an option containing a satisfying (partial)
     /// assignment if such an assignment exists, else returns None.
@@ -57,14 +87,14 @@ pub mod solver {
             return Some(assignment);
         }
 
-        // Choose any variable to assign / backtrack on
-        // Assumption: the earlier checks ensure that there is a first element in `vars`.
-        let var = vars.first().unwrap();
+        // Choose the most frequently occurring variable in the formula to assign / backtrack on
+        // Assumption: the earlier checks ensure that there is at least one variable.
+        let var = pick_most_freq_var(&formula).unwrap();
 
         let mut pos_clauses = formula.clauses.clone();
         let mut pos_assignment = assignment.clone();
         propagate_unit_literal(
-            Literal::new(*var, Sign::Positive),
+            Literal::new(var, Sign::Positive),
             &mut pos_clauses,
             &mut pos_assignment,
         );
@@ -81,7 +111,7 @@ pub mod solver {
                 let mut neg_clauses = formula.clauses.clone();
                 let mut neg_assignment = assignment.clone();
                 propagate_unit_literal(
-                    Literal::new(*var, Sign::Negative),
+                    Literal::new(var, Sign::Negative),
                     &mut neg_clauses,
                     &mut neg_assignment,
                 );
@@ -799,6 +829,9 @@ pub mod solver {
             assert!(!*assignment.get(&1).unwrap());
             assert!(!*assignment.get(&3).unwrap());
         }
+
+        // --- pick_most_freq_var ---
+        // TODO: ADD TESTS HERE
 
         // --- solve ---
         // -> tests in tests directory
