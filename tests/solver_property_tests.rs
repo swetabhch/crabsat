@@ -10,9 +10,9 @@ use thiserror::Error;
 // This file involves functions that randomly generate SAT boolean
 // formulae and test the solver and parser with them.
 
-const MAX_VARS: u32 = 20;
-const MAX_NUM_CLAUSES: u32 = 20;
-const NUM_ITERATIONS: u32 = 40;
+const MAX_VARS: u32 = 100;
+const MAX_NUM_CLAUSES: u32 = 100;
+const NUM_ITERATIONS: u32 = 100;
 
 #[derive(Debug, Error)]
 enum TestError {
