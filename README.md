@@ -1,8 +1,12 @@
 # CrabSAT
 
-This is an implementation of the DPLL (Davis–Putnam–Logemann–Loveland) algorithm for deciding the satisfiability of a boolean formula in conjunctive normal form (CNF). I'm using this project as a way to learn Rust! 
+This project started out as an implementation of the [DPLL (Davis–Putnam–Logemann–Loveland)](https://www.wikiwand.com/en/DPLL_algorithm) algorithm for deciding the satisfiability of a boolean formula in conjunctive normal form (CNF). Hopefully, it will evolve into a more general suite of [SAT solvers](https://www.wikiwand.com/en/SAT_solver) that give users more informative output than they could get from just DPLL! I'm using this project as a way to learn Rust, and it's been really fun so far.
+
+## Usage
 
 ## Features
+
+## The shape of things to come
 
 I hope to build this out with time, both to include more solving/explainability features and to improve its user interface. Here are some things I have in mind:
 
