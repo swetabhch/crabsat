@@ -1,4 +1,3 @@
-use crabsat::cnf::cnf::*;
 use crabsat::dpll_solver::dpll::*;
 use crabsat::parser::parser::*;
 use crabsat::solver::solver::*;

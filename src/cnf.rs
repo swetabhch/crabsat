@@ -1,5 +1,4 @@
 pub mod cnf {
-    use std::collections::HashMap;
     use std::fmt;
 
     /// An enum representing the sign of a literal.
