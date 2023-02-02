@@ -2,55 +2,44 @@ pub mod cnf {
     use std::collections::HashMap;
     use std::fmt;
 
+    /// An enum representing the sign of a literal.
     #[derive(Debug, PartialEq, Eq, Clone, Copy)]
     pub enum Sign {
         Positive,
         Negative,
     }
 
+    /// A struct for a literal in a boolean formula! Names are bounded by the limits of u32.
+    /// Note that Literals are Copy-able.
     #[derive(Debug, PartialEq, Eq, Clone, Copy)]
     pub struct Literal {
         pub name: u32,
         pub sign: Sign,
     }
 
+    /// A struct for a clause in a boolean formula. Semanically, this should be
+    /// interpreted as an AND expression of all of its literals.
+    /// Note that this can be Cloned but not Copied.
     #[derive(Debug, PartialEq, Eq, Clone)]
     pub struct Clause {
         pub literals: Vec<Literal>,
     }
 
+    /// A struct for a boolean formula in conjunctive normal form (CNF). This should
+    /// be interpreted as an OR of all of its clauses.
     #[derive(Debug)]
     pub struct CNFFormula {
         pub clauses: Vec<Clause>,
     }
 
-    #[derive(Debug, PartialEq, Eq)]
-    pub enum SATResult {
-        SAT(HashMap<u32, bool>),
-        UNSAT,
-    }
-
     impl Literal {
+        /// Simplifying literal construction!
         pub fn new(name: u32, sign: Sign) -> Literal {
             Literal { name, sign }
         }
     }
 
-    impl fmt::Display for SATResult {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            match self {
-                Self::UNSAT => write!(f, "UNSAT"),
-                Self::SAT(soln) => {
-                    let mut soln_string = String::from("SAT. Satisfying assignment: {\n");
-                    for (var, truth_val) in soln.iter() {
-                        soln_string.push_str(&format!("  {}: {}\n", var, truth_val));
-                    }
-                    soln_string.push('}');
-                    write!(f, "{}", &soln_string)
-                }
-            }
-        }
-    }
+    // Display code!
 
     impl fmt::Display for Literal {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

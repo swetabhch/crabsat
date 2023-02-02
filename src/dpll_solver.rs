@@ -1,6 +1,6 @@
 pub mod dpll {
     use crate::cnf::cnf::*;
-    use crate::solver::solver::Solver;
+    use crate::solver::solver::*;
     use std::collections::{HashMap, HashSet};
 
     pub struct DPLLSolver {}
@@ -158,7 +158,6 @@ pub mod dpll {
         // Change assignment according to literal.
         assign_literal_to_true(&literal, assignment);
         let mut clauses_to_remove = Vec::new();
-        // TODO: see if there's a better way to do this than just cloning clauses.
         for clause in clauses.clone() {
             if clause.literals.contains(&literal) {
                 clauses_to_remove.push(clause);
@@ -190,7 +189,6 @@ pub mod dpll {
 
     /// Performs pure literal elimination on a formula and returns the formula that remains.
     /// Side effect: mutates the assignment mapping according to the pure literal elim process.
-    /// TODO: Decide where we get variable names from. For now: take it in as input.
     fn eliminate_pure_literals(
         formula: &CNFFormula,
         assignment: &mut HashMap<u32, bool>,
